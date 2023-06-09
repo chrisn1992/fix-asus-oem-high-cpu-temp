@@ -559,6 +559,7 @@ $actionPath;
 $taskName = "LowBloatwareProcess";
 $currentDir = $PSScriptRoot;
 $task = Get-ScheduledTask | Where-Object {$_.TaskName -like $taskName };
+$oneMinuteDelay = New-TimeSpan -Minutes 1;
 if($task){
 	$taskAction = New-ScheduledTaskAction -Execute $actionPath;
 	
@@ -569,8 +570,8 @@ if($task){
 	$taskSettings.IdleSettings.WaitTimeout = "";
 	
 	$taskTriggers = @(
-		$(New-ScheduledTaskTrigger -AtStartup),
-		$(New-ScheduledTaskTrigger -At (Get-Date).AddMinutes(1) -Once)
+		$(New-ScheduledTaskTrigger -At (Get-Date).AddMinutes(10) -Once),
+		$(New-ScheduledTaskTrigger -AtLogon -RandomDelay $oneMinuteDelay)
 	)
 	
 	$task = Set-ScheduledTask -TaskName $taskName -Trigger $taskTriggers -Action $taskAction -Settings $taskSettings -Principal $taskPrincipal;
@@ -583,23 +584,30 @@ if($task){
 	$taskSettings.IdleSettings.WaitTimeout = "";
 	
 	$taskTriggers = @(
-		$(New-ScheduledTaskTrigger -AtStartup),
-		$(New-ScheduledTaskTrigger -At (Get-Date).AddMinutes(1) -Once)
+		$(New-ScheduledTaskTrigger -At (Get-Date).AddMinutes(10) -Once),
+		$(New-ScheduledTaskTrigger -AtLogon -RandomDelay $oneMinuteDelay)
 	)
 	$task = Register-ScheduledTask -TaskName $taskName -Trigger $taskTriggers -Action $taskAction -Settings $taskSettings -Principal $taskPrincipal;
 	Start-ScheduledTask -TaskName $taskName;
 }
 
 $cpuAffinity = [int][math]::Pow(2,$Env:Number_of_Processors-1);
-$prorityClass =  [System.Diagnostics.ProcessPriorityClass]::Idle;
-$Process = Get-Process *armoury*;
-$Process += Get-Process *asus*;
-$Process += Get-Process *AcPowerNotification*;
-$Process += Get-Process *AuraWallpaperService*;
-$Process += Get-Process *ACCI*;
-$Process += Get-Process *ROGLiveService*;
-Foreach ($i in $Process)
+$lowProrityClass =  [System.Diagnostics.ProcessPriorityClass]::Idle;
+$ProcessLow = Get-Process *armoury*;
+$ProcessLow += Get-Process *asus*;
+$ProcessLow += Get-Process *AcPowerNotification*;
+$ProcessLow += Get-Process *AuraWallpaperService*;
+$ProcessLow += Get-Process *ACCI*;
+$ProcessLow += Get-Process *ROGLiveService*;
+$ProcessLow += Get-Process *ArcControl*;
+Foreach ($i in $ProcessLow)
 {
 	$i.ProcessorAffinity = $cpuAffinity;
-	$i.PriorityClass=$prorityClass;
+	$i.PriorityClass=$lowProrityClass;
+}
+$NormProrityClass =  [System.Diagnostics.ProcessPriorityClass]::BelowNormal;
+$ProcessSteam = Get-Process *steam*;
+Foreach ($i in $ProcessSteam)
+{
+	$i.PriorityClass=$NormProrityClass;
 }
